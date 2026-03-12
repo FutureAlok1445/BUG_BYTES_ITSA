@@ -1,87 +1,152 @@
+"""
+Elasticsearch client initialization and index management.
+Connects to Elastic Cloud Serverless. Falls back gracefully if unavailable.
+"""
 import os
-from dotenv import load_dotenv
+import time
+import logging
 from elasticsearch import Elasticsearch
+from dotenv import load_dotenv
 
 load_dotenv()
+logger = logging.getLogger("fincoach.elastic")
 
-ELASTIC_NODE = os.getenv("ELASTIC_NODE")
-ELASTIC_PASSWORD = os.getenv("ELASTIC_PASSWORD")
+ELASTIC_NODE = os.getenv("ELASTIC_NODE", "")
+ELASTIC_PASSWORD = os.getenv("ELASTIC_PASSWORD", "")
 
+# --- Elasticsearch Client (singleton) ---
 es_client = None
 try:
     if ELASTIC_NODE and ELASTIC_PASSWORD:
         es_client = Elasticsearch(
             hosts=[ELASTIC_NODE],
-            api_key=ELASTIC_PASSWORD
+            api_key=ELASTIC_PASSWORD,
+            request_timeout=30
         )
-except ValueError as e:
-    print(f"Warning: Elasticsearch client init failed - {e}")
+except Exception as e:
+    logger.error(f"Elasticsearch client init failed: {e}")
+    es_client = None
+
+# --- Index Mappings ---
+TRANSACTION_MAPPINGS = {
+    "mappings": {
+        "properties": {
+            "id": {"type": "keyword"},
+            "user_id": {"type": "keyword"},
+            "amount": {"type": "float"},
+            "type": {"type": "keyword"},
+            "category": {"type": "keyword"},
+            "description": {"type": "text"},
+            "date": {"type": "date", "format": "yyyy-MM-dd"}
+        }
+    }
+}
+
+GOAL_MAPPINGS = {
+    "mappings": {
+        "properties": {
+            "id": {"type": "keyword"},
+            "user_id": {"type": "keyword"},
+            "name": {"type": "text"},
+            "target_amount": {"type": "float"},
+            "current_amount": {"type": "float"},
+            "deadline": {"type": "date", "format": "yyyy-MM-dd"}
+        }
+    }
+}
+
+PROFILE_MAPPINGS = {
+    "mappings": {
+        "properties": {
+            "user_id": {"type": "keyword"},
+            "name": {"type": "text"},
+            "income_type": {"type": "keyword"},
+            "streak_days": {"type": "integer"},
+            "personality_type": {"type": "keyword"},
+            "finscore": {"type": "integer"}
+        }
+    }
+}
+
+INDICES = {
+    "fincoach_transactions": TRANSACTION_MAPPINGS,
+    "fincoach_goals": GOAL_MAPPINGS,
+    "fincoach_profile": PROFILE_MAPPINGS,
+}
+
+# --- Mock Dashboard Data (fallback if ES is completely down) ---
+MOCK_DASHBOARD_DATA = {
+    "profile": {
+        "name": "Ravi Kumar",
+        "finscore": 67,
+        "personality_type": "Impulsive Spender",
+        "streak_days": 12,
+        "income_type": "Freelance"
+    },
+    "income": 34000,
+    "spent": 28500,
+    "saved": 5500,
+    "savings_rate": 0.16,
+    "categories": {
+        "Food": 9800,
+        "Transport": 3200,
+        "Entertainment": 2100,
+        "Rent": 12000,
+        "Bills": 850,
+        "Shopping": 550
+    },
+    "weekly_trend": {"W1": 4200, "W2": 6800, "W3": 9500, "W4": 8000},
+    "goals": [
+        {"name": "Emergency Fund", "target_amount": 50000, "current_amount": 40000,
+         "deadline": "2026-06-30", "progress_pct": 80},
+        {"name": "New Bike", "target_amount": 85000, "current_amount": 10200,
+         "deadline": "2026-12-31", "progress_pct": 12},
+        {"name": "Goa Trip", "target_amount": 24000, "current_amount": 5100,
+         "deadline": "2026-10-15", "progress_pct": 21}
+    ],
+    "alerts": [
+        {"type": "warning", "msg": "🟡 Spending at 84% of income. Tighten up this week.", "code": "HIGH_SPEND"},
+        {"type": "warning", "msg": "🟡 Food ₹9800 = 29% of income. Healthy limit: 20%", "code": "FOOD_OVERSPEND"},
+        {"type": "info", "msg": "📅 Month-end forecast: ₹1200 remaining", "code": "FORECAST"}
+    ],
+    "forecast": 1200,
+    "weekly_budget": {
+        "this_week_budget": 4500,
+        "this_week_spent": 3200,
+        "remaining_today": 650,
+        "daily_safe_limit": 786
+    }
+}
 
 
-def init_indices() -> None:
-    try:
-        if not es_client:
-            print("Elasticsearch client not initialized. Cannot create indices.")
-            return
+def test_connection() -> bool:
+    """Test Elasticsearch connection with retry logic. Returns True if connected."""
+    if not es_client:
+        return False
+    for attempt in range(3):
+        try:
+            info = es_client.info()
+            logger.info(f"Elasticsearch connected (attempt {attempt + 1})")
+            return True
+        except Exception as e:
+            logger.warning(f"ES connection attempt {attempt + 1} failed: {e}")
+            if attempt < 2:
+                time.sleep(1)
+    logger.error("All Elasticsearch connection attempts failed")
+    return False
 
-        # Transactions index
-        if not es_client.indices.exists(index="fincoach_transactions"):
-            es_client.indices.create(
-                index="fincoach_transactions",
-                body={
-                    "mappings": {
-                        "properties": {
-                            "id": {"type": "keyword"},
-                            "user_id": {"type": "keyword"},
-                            "amount": {"type": "float"},
-                            "type": {"type": "keyword"},
-                            "category": {"type": "keyword"},
-                            "description": {"type": "text"},
-                            "date": {"type": "date"}
-                        }
-                    }
-                }
-            )
-            print("Created index: fincoach_transactions")
-            
-        # Goals index
-        if not es_client.indices.exists(index="fincoach_goals"):
-            es_client.indices.create(
-                index="fincoach_goals",
-                body={
-                    "mappings": {
-                        "properties": {
-                            "id": {"type": "keyword"},
-                            "user_id": {"type": "keyword"},
-                            "name": {"type": "text"},
-                            "target_amount": {"type": "float"},
-                            "current_amount": {"type": "float"},
-                            "deadline": {"type": "date"}
-                        }
-                    }
-                }
-            )
-            print("Created index: fincoach_goals")
-            
-        # Profile index
-        if not es_client.indices.exists(index="fincoach_profile"):
-            es_client.indices.create(
-                index="fincoach_profile",
-                body={
-                    "mappings": {
-                        "properties": {
-                            "user_id": {"type": "keyword"},
-                            "name": {"type": "keyword"},
-                            "income_type": {"type": "keyword"},
-                            "streak_days": {"type": "integer"},
-                            "personality_type": {"type": "keyword"}
-                        }
-                    }
-                }
-            )
-            print("Created index: fincoach_profile")
-    except Exception as e:
-        print(f"Error initializing indices: {e}")
 
-if __name__ == "__main__":
-    init_indices()
+def init_indices():
+    """Create required indices if they don't exist."""
+    if not es_client:
+        logger.warning("ES client not available — skipping index init")
+        return
+    for index_name, mappings in INDICES.items():
+        try:
+            if not es_client.indices.exists(index=index_name):
+                es_client.indices.create(index=index_name, body=mappings)
+                print(f"  ✅ Created index: {index_name}")
+            else:
+                print(f"  ℹ️  Index exists: {index_name}")
+        except Exception as e:
+            logger.error(f"Failed to create index {index_name}: {e}")

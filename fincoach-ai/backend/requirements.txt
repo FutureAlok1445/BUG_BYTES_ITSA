@@ -1,6 +1,11 @@
 fastapi
-uvicorn
+uvicorn[standard]
 elasticsearch
 groq
 python-dotenv
 pydantic
+pydantic-settings
+slowapi
+reportlab
+python-multipart
+httpx
