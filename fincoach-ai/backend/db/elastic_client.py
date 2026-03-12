@@ -13,16 +13,34 @@ logger = logging.getLogger("fincoach.elastic")
 
 ELASTIC_NODE = os.getenv("ELASTIC_NODE", "")
 ELASTIC_PASSWORD = os.getenv("ELASTIC_PASSWORD", "")
+ELASTIC_USERNAME = os.getenv("ELASTIC_USERNAME", "elastic")  # Default elastic username
 
 # --- Elasticsearch Client (singleton) ---
 es_client = None
 try:
     if ELASTIC_NODE and ELASTIC_PASSWORD:
-        es_client = Elasticsearch(
-            hosts=[ELASTIC_NODE],
-            api_key=ELASTIC_PASSWORD,
-            request_timeout=30
-        )
+        # Try API key auth first; fall back to basic_auth (username:password)
+        # API keys are base64 encoded and contain a colon when decoded,
+        # so we detect by checking if it looks like id:api_key format
+        if ":" in ELASTIC_PASSWORD:
+            # basic_auth mode: ELASTIC_PASSWORD = "username:password"
+            parts = ELASTIC_PASSWORD.split(":", 1)
+            es_client = Elasticsearch(
+                hosts=[ELASTIC_NODE],
+                basic_auth=(parts[0], parts[1]),
+                request_timeout=30,
+                meta_header=True  # Enables X-Elastic-Client-Meta for traceability
+            )
+            logger.info(f"ES client using basic_auth as '{parts[0]}'")
+        else:
+            # API key mode
+            es_client = Elasticsearch(
+                hosts=[ELASTIC_NODE],
+                api_key=ELASTIC_PASSWORD,
+                request_timeout=30,
+                meta_header=True  # Enables X-Elastic-Client-Meta for traceability
+            )
+            logger.info("ES client using api_key auth")
 except Exception as e:
     logger.error(f"Elasticsearch client init failed: {e}")
     es_client = None

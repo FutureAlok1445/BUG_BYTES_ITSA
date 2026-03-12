@@ -36,7 +36,11 @@ def get_all_transactions(user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
 
 
 def insert_transaction(user_id: str, data: Dict[str, Any]) -> str:
-    """Insert a new transaction document. Returns doc ID or empty string on failure."""
+    """Insert a new transaction document. Returns doc ID or empty string on failure.
+    
+    Uses refresh='wait_for' so the document is immediately searchable —
+    critical for live demos where dashboard is refreshed right after adding a transaction.
+    """
     try:
         if not es_client:
             return ""
@@ -44,10 +48,16 @@ def insert_transaction(user_id: str, data: Dict[str, Any]) -> str:
         doc = data.copy()
         doc["id"] = doc_id
         doc["user_id"] = user_id
-        es_client.index(index=INDEX, id=doc_id, document=doc)
+        es_client.index(
+            index=INDEX,
+            id=doc_id,
+            document=doc,
+            refresh="wait_for"  # Forces immediate index refresh — no 1-sec lag on dashboard
+        )
+        logger.info(f"insert_transaction OK: {doc_id} [{doc.get('category')} ₹{doc.get('amount')}]")
         return doc_id
     except Exception as e:
-        logger.error(f"insert_transaction failed: {e}")
+        logger.error(f"insert_transaction failed: {type(e).__name__}: {e}")
         return ""
 
 

@@ -34,7 +34,11 @@ def get_all_goals(user_id: str) -> List[Dict[str, Any]]:
 
 
 def insert_goal(user_id: str, data: Dict[str, Any]) -> str:
-    """Insert a new goal. Returns doc ID or empty string on failure."""
+    """Insert a new goal. Returns doc ID or empty string on failure.
+    
+    Uses refresh='wait_for' so the goal is immediately visible —
+    no 1-second ES indexing lag during live demos.
+    """
     try:
         if not es_client:
             return ""
@@ -42,10 +46,16 @@ def insert_goal(user_id: str, data: Dict[str, Any]) -> str:
         doc = data.copy()
         doc["id"] = doc_id
         doc["user_id"] = user_id
-        es_client.index(index=INDEX, id=doc_id, document=doc)
+        es_client.index(
+            index=INDEX,
+            id=doc_id,
+            document=doc,
+            refresh="wait_for"  # Immediately searchable after insert
+        )
+        logger.info(f"insert_goal OK: {doc_id} [{doc.get('name')}]")
         return doc_id
     except Exception as e:
-        logger.error(f"insert_goal failed: {e}")
+        logger.error(f"insert_goal failed: {type(e).__name__}: {e}")
         return ""
 
 
@@ -57,9 +67,11 @@ def update_goal_progress(user_id: str, goal_id: str, new_amount: float) -> bool:
         es_client.update(
             index=INDEX,
             id=goal_id,
-            body={"doc": {"current_amount": new_amount}}
+            body={"doc": {"current_amount": new_amount}},
+            refresh="wait_for"  # Immediately searchable after update
         )
+        logger.info(f"update_goal_progress OK: goal={goal_id} new_amount={new_amount}")
         return True
     except Exception as e:
-        logger.error(f"update_goal_progress failed: {e}")
+        logger.error(f"update_goal_progress failed: {type(e).__name__}: {e}")
         return False
