@@ -1,32 +1,70 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:8000';
-
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000/api',
+  timeout: 15000,
 });
 
 export const getDashboard = async () => {
-  const response = await api.get('/dashboard');
-  return response.data;
+  try {
+    const res = await api.get('/dashboard');
+    return res.data;
+  } catch (error) {
+    console.error('getDashboard Error:', error);
+    return null;
+  }
 };
 
 export const getInsights = async () => {
-  const response = await api.get('/insights');
-  return response.data;
+  try {
+    const res = await api.get('/insights');
+    return res.data;
+  } catch (error) {
+    console.error('getInsights Error:', error);
+    return null;
+  }
 };
 
 export const sendChat = async (message) => {
-  const response = await api.post('/chat', { message });
-  return response.data;
+  try {
+    const res = await api.post('/chat', { message });
+    return res.data;
+  } catch (error) {
+    console.error('sendChat Error:', error);
+    return null;
+  }
 };
 
-export const addTransaction = async (transaction) => {
-  const response = await api.post('/transactions', transaction);
-  return response.data;
+export const addTransaction = async (data) => {
+  try {
+    const res = await api.post('/transactions', data);
+    return res.data;
+  } catch (error) {
+    console.error('addTransaction Error:', error);
+    return null;
+  }
 };
 
-export const addGoal = async (goal) => {
-  const response = await api.post('/goals', goal);
-  return response.data;
+export const addGoal = async (data) => {
+  try {
+    const res = await api.post('/goals', data);
+    return res.data;
+  } catch (error) {
+    console.error('addGoal Error:', error);
+    return null;
+  }
 };
+
+export const downloadReport = async () => {
+  try {
+    const res = await api.get('/reports/download', {
+      responseType: 'blob'
+    });
+    return res.data;
+  } catch (error) {
+    console.error('downloadReport Error:', error);
+    return null;
+  }
+};
+
+export default api;
