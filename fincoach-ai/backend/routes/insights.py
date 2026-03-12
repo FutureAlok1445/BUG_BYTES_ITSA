@@ -1,43 +1,55 @@
+"""
+Insights route — generates AI-powered financial insights with PII protection.
+"""
 import re
-from fastapi import APIRouter, HTTPException
+from datetime import datetime
+from fastapi import APIRouter, Request, HTTPException
 from routes.dashboard import get_dashboard
 from services.groq_ai import get_ai_insights
+from services.data_sanitizer import build_safe_ai_context
 from db import update_personality
+from security.rate_limiter import limiter, INSIGHTS_LIMIT
 
 router = APIRouter()
 
+
 @router.get("/insights")
-def get_insights():
-    print("GET /api/insights hit")
+@limiter.limit(INSIGHTS_LIMIT)
+def get_insights(request: Request):
+    """Generate AI-powered financial insights. Rate limited: 5/min."""
     user_id = "user_001"
     try:
-        dashboard_data = get_dashboard()
-        
-        context_dict = {
+        dashboard_data = get_dashboard(request)
+
+        # Build safe context (strips PII)
+        safe_context = build_safe_ai_context({
             "name": dashboard_data["profile"]["name"],
             "finscore": dashboard_data["profile"]["finscore"],
-            "personality": dashboard_data["profile"]["personality_type"],
-            "streak": dashboard_data["profile"]["streak_days"],
+            "personality_type": dashboard_data["profile"]["personality_type"],
+            "streak_days": dashboard_data["profile"]["streak_days"],
             "income": dashboard_data["income"],
             "spent": dashboard_data["spent"],
             "saved": dashboard_data["saved"],
             "categories": dashboard_data["categories"],
-            "alerts": [a["msg"] for a in dashboard_data["alerts"]],
-            "goals": [{"name": g["name"], "target": g.get("target_amount", g.get("target")), "current": g.get("current_amount", g.get("current"))} for g in dashboard_data["goals"]],
-        }
-        
-        insights_text = get_ai_insights(context_dict)
-        
+            "alerts": dashboard_data["alerts"],
+            "goals": dashboard_data["goals"],
+        })
+
+        insights_text, is_fallback = get_ai_insights(safe_context)
+
+        # Try to extract personality from AI response
         personality = dashboard_data["profile"]["personality_type"]
         match = re.search(r'(?:Personality|spending personality type)\s*:\s*(.*)', insights_text, re.IGNORECASE)
         if match:
             personality = match.group(1).strip()
             update_personality(user_id, personality)
-        
+
         return {
             "insights": insights_text,
-            "personality": personality
+            "personality": personality,
+            "generated_at": datetime.now().isoformat(),
+            "is_fallback": is_fallback
         }
     except Exception as e:
-        print(f"Error in get_insights: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error while generating insights")
+        print(f"Insights error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate insights")

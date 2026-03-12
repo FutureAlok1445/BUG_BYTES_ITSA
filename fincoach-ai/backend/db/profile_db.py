@@ -1,91 +1,109 @@
+"""
+User profile database operations against Elasticsearch.
+Every function has try/except and returns safe fallback values.
+"""
+import logging
+from typing import Dict, Any, Optional
 from db.elastic_client import es_client
-from typing import Dict, Any
 
-INDEX   = "fincoach_profile"
+logger = logging.getLogger("fincoach.profile_db")
+INDEX = "fincoach_profile"
+
+FALLBACK_PROFILE = {
+    "user_id": "user_001",
+    "name": "Ravi Kumar",
+    "income_type": "Freelance",
+    "streak_days": 12,
+    "personality_type": "Impulsive Spender",
+    "finscore": 67
+}
+
 
 def get_profile(user_id: str) -> Dict[str, Any]:
-    """Get user profile"""
+    """Fetch user profile by user_id."""
     try:
         if not es_client or not es_client.indices.exists(index=INDEX):
-            # Return default profile as fallback
-            return {
-                "user_id":          user_id,
-                "name":             "Ravi Kumar",
-                "income_type":      "irregular",
-                "streak_days":      12,
-                "personality_type": "Impulsive Spender"
-            }
-        resp = es_client.get(index=INDEX, id=user_id)
-        profile = resp["_source"]
-        print(f"✅ get_profile: {profile.get('name')}")
-        return profile
-    except Exception as e:
-        print(f"❌ get_profile error: {e}")
-        # Return default profile as fallback
-        return {
-            "user_id":          user_id,
-            "name":             "Ravi Kumar",
-            "income_type":      "irregular",
-            "streak_days":      12,
-            "personality_type": "Impulsive Spender"
-        }
-
-def update_personality(user_id: str, personality_type: str) -> bool:
-    """Update AI-detected personality type"""
-    try:
-        if not es_client: return False
-
-        es_client.update(
+            return FALLBACK_PROFILE
+        res = es_client.search(
             index=INDEX,
-            id=user_id,
-            body={"doc": {"personality_type": personality_type}},
-            refresh=True
+            body={"query": {"term": {"user_id": user_id}}, "size": 1}
         )
-        print(f"✅ update_personality: {personality_type}")
-        return True
+        if res["hits"]["hits"]:
+            return res["hits"]["hits"][0]["_source"]
+        return FALLBACK_PROFILE
     except Exception as e:
-        print(f"❌ update_personality error: {e}")
+        logger.error(f"get_profile failed: {e}")
+        return FALLBACK_PROFILE
+
+
+def update_personality(user_id: str, personality: str) -> bool:
+    """Update user's personality type."""
+    try:
+        if not es_client or not es_client.indices.exists(index=INDEX):
+            return False
+        res = es_client.search(
+            index=INDEX,
+            body={"query": {"term": {"user_id": user_id}}, "size": 1}
+        )
+        if res["hits"]["hits"]:
+            doc_id = res["hits"]["hits"][0]["_id"]
+            es_client.update(index=INDEX, id=doc_id, body={"doc": {"personality_type": personality}})
+            return True
         return False
+    except Exception as e:
+        logger.error(f"update_personality failed: {e}")
+        return False
+
 
 def increment_streak(user_id: str) -> bool:
-    """Increment saving streak by 1"""
+    """Increment the user's saving streak by 1 day."""
     try:
-        if not es_client: return False
-
-        es_client.update(
+        if not es_client or not es_client.indices.exists(index=INDEX):
+            return False
+        res = es_client.search(
             index=INDEX,
-            id=user_id,
-            body={"script": {"source": "ctx._source.streak_days += 1"}},
-            refresh=True
+            body={"query": {"term": {"user_id": user_id}}, "size": 1}
         )
-        print(f"✅ increment_streak done")
-        return True
+        if res["hits"]["hits"]:
+            doc_id = res["hits"]["hits"][0]["_id"]
+            current = res["hits"]["hits"][0]["_source"].get("streak_days", 0)
+            es_client.update(index=INDEX, id=doc_id, body={"doc": {"streak_days": current + 1}})
+            return True
+        return False
     except Exception as e:
-        print(f"❌ increment_streak error: {e}")
+        logger.error(f"increment_streak failed: {e}")
         return False
 
+
 def init_profile_if_not_exists(user_id: str) -> bool:
-    """Create default profile for demo user if not exists"""
+    """Create a default profile for user if one doesn't exist."""
     try:
-        if not es_client: return False
-        if not es_client.indices.exists(index=INDEX):
-            es_client.indices.create(index=INDEX)
-        es_client.get(index=INDEX, id=user_id)
-        print(f"ℹ️  Profile already exists for {user_id}")
-        return True
-    except Exception:
-        # Doesn't exist — create it
-        es_client.index(
+        if not es_client:
+            return False
+        try:
+            if not es_client.indices.exists(index=INDEX):
+                return False
+        except Exception:
+            return False
+
+        res = es_client.search(
             index=INDEX,
-            id=user_id,
-            body={
-                "user_id":          user_id,
-                "name":             "Ravi Kumar",
-                "income_type":      "irregular",
-                "streak_days":      12,
-                "personality_type": "Impulsive Spender"
-            },
-            refresh=True
+            body={"query": {"term": {"user_id": user_id}}, "size": 1}
         )
-        print(f"✅ Profile created for {user_id}")
+        if res["hits"]["hits"]:
+            return True
+
+        default_profile = {
+            "user_id": user_id,
+            "name": "Ravi Kumar",
+            "income_type": "Freelance",
+            "streak_days": 12,
+            "personality_type": "Impulsive Spender",
+            "finscore": 0
+        }
+        es_client.index(index=INDEX, id=user_id, document=default_profile)
+        print(f"  ✅ Created default profile for {user_id}")
         return True
+    except Exception as e:
+        logger.error(f"init_profile_if_not_exists failed: {e}")
+        return False
