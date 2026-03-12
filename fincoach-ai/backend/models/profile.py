@@ -1,7 +1,10 @@
 from pydantic import BaseModel
 from typing import Optional
 
-class Profile(BaseModel):
-    id: Optional[str] = None
+class UserProfile(BaseModel):
+    user_id: str
     name: str
-    score: int
+    income_type: str
+    streak_days: int
+    personality_type: str
+    finscore: Optional[int] = None
