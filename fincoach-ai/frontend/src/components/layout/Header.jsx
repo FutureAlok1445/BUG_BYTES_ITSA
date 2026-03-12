@@ -5,7 +5,8 @@ const Header = ({ activeTab, onTabChange, userData, onReportDownload }) => {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'coach', label: 'AI Coach' },
-    { id: 'alerts', label: 'Alerts & Goals' }
+    { id: 'alerts', label: 'Alerts & Goals' },
+    { id: 'report', label: 'Report' }
   ];
 
   const first_name = userData?.name?.split(' ')[0] || 'User';

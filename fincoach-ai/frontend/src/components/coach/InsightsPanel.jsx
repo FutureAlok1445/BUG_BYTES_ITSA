@@ -1,134 +1,211 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { THEME } from '../../styles/theme';
-import { getInsights } from '../../api';
 
-const InsightsPanel = ({ fallbackData }) => {
-  const [insights, setInsights] = useState(null);
-  const [loading, setLoading] = useState(true);
+const InsightsPanel = ({ insights, loading, is_fallback }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [cursorVisible, setCursorVisible] = useState(true);
+  const [typingDone, setTypingDone] = useState(false);
 
+  // Typewriter effect
   useEffect(() => {
-    let isMounted = true;
-    
-    // Simulate typewriter effect text gradually appearing
-    const fetchAI = async () => {
-      setLoading(true);
-      const res = await getInsights();
-      if (isMounted) {
-        if (res && res.insights) {
-          setInsights(res.insights);
-        } else {
-          setInsights(fallbackData || "Analyzing your spending patterns... Based on your recent transactions, consider cutting down on dining out to boost your savings rate this month.");
-        }
-        setLoading(false);
-      }
-    };
-    
-    fetchAI();
-    return () => { isMounted = false; };
-  }, [fallbackData]);
+    if (loading || !insights) {
+      setDisplayedText('');
+      setTypingDone(false);
+      return;
+    }
 
-  // Typewriter effect setup
-  const insightsText = insights || "";
-  const words = insightsText.split(" ");
+    let i = 0;
+    setDisplayedText('');
+    setTypingDone(false);
+
+    const interval = setInterval(() => {
+      if (i < insights.length) {
+        setDisplayedText(insights.substring(0, i + 1));
+        i++;
+      } else {
+        clearInterval(interval);
+        setTypingDone(true);
+      }
+    }, 15);
+
+    return () => clearInterval(interval);
+  }, [insights, loading]);
+
+  // Blinking cursor
+  useEffect(() => {
+    if (typingDone) { setCursorVisible(false); return; }
+    const blink = setInterval(() => setCursorVisible(v => !v), 500);
+    return () => clearInterval(blink);
+  }, [typingDone]);
+
+  // Format lines with special prefixes
+  const formatLine = (line, idx) => {
+    let bgColor = 'transparent';
+    if (line.startsWith('📊')) bgColor = 'rgba(168,85,247,0.08)';
+    else if (line.startsWith('💡')) bgColor = 'rgba(0,255,135,0.08)';
+    else if (line.startsWith('📅')) bgColor = 'rgba(0,212,255,0.08)';
+
+    return (
+      <div key={idx} style={{
+        backgroundColor: bgColor,
+        padding: bgColor !== 'transparent' ? '8px 12px' : '2px 0',
+        borderRadius: '6px',
+        marginBottom: '4px'
+      }}>
+        {line}
+      </div>
+    );
+  };
 
   return (
     <div style={{
       backgroundColor: THEME.COLORS.surface,
-      border: `1px solid ${THEME.COLORS.border}`,
-      borderRadius: THEME.BORDER_RADIUS.lg,
-      padding: '32px',
-      position: 'relative',
-      overflow: 'hidden',
+      borderLeft: '4px solid #A855F7',
+      borderTop: `1px solid ${THEME.COLORS.border}`,
+      borderRight: `1px solid ${THEME.COLORS.border}`,
+      borderBottom: `1px solid ${THEME.COLORS.border}`,
+      borderRadius: `0 ${THEME.BORDER_RADIUS.lg} ${THEME.BORDER_RADIUS.lg} 0`,
+      padding: '24px',
       height: '100%',
-      minHeight: '250px'
+      minHeight: '260px',
+      display: 'flex',
+      flexDirection: 'column'
     }}>
-      {/* Decorative quotes */}
-      <div style={{
-        position: 'absolute',
-        top: '20px',
-        left: '20px',
-        fontSize: '80px',
-        color: THEME.COLORS.primaryDim,
-        fontFamily: THEME.FONTS.heading,
-        fontWeight: 800,
-        lineHeight: 0.5,
-        opacity: 0.3,
-        pointerEvents: 'none'
-      }}>
-        "
-      </div>
-
-      <h3 style={{ 
-        fontFamily: THEME.FONTS.heading, 
-        color: THEME.COLORS.text,
-        fontSize: '20px',
-        marginBottom: '24px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px'
-      }}>
-        <span style={{ color: THEME.COLORS.primary }}>✨</span> 
-        Deep Dive Insights
-      </h3>
-
-      <div style={{ 
-        fontFamily: THEME.FONTS.body,
-        fontSize: '16px',
-        color: THEME.COLORS.text,
-        lineHeight: 1.8,
-        position: 'relative',
-        zIndex: 1
-      }}>
-        {loading ? (
-          <motion.div
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ repeat: Infinity, duration: 1.5 }}
-            style={{ color: THEME.COLORS.textSecondary }}
-          >
-            Groq LLaMA3 is analyzing your transaction history...
-          </motion.div>
-        ) : (
-          <p>
-            {words.map((word, i) => (
-              <motion.span
-                key={i}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{
-                  duration: 0.2,
-                  delay: i * 0.05 // Staggered word appearance
-                }}
-                style={{ 
-                  display: 'inline-block',
-                  marginRight: '0.25em'
-                }}
-              >
-                {word}
-              </motion.span>
-            ))}
-          </p>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <h3 style={{
+          fontFamily: THEME.FONTS.heading,
+          fontSize: '18px',
+          fontWeight: 700,
+          color: THEME.COLORS.text
+        }}>
+          🧠 AI Behavioral Analysis
+        </h3>
+        <span style={{
+          backgroundColor: '#A855F720',
+          color: '#A855F7',
+          border: '1px solid #A855F740',
+          padding: '2px 10px',
+          borderRadius: '20px',
+          fontSize: '11px',
+          fontFamily: THEME.FONTS.mono,
+          fontWeight: 600
+        }}>
+          ⚡ Groq AI
+        </span>
+        {is_fallback && (
+          <span style={{
+            backgroundColor: '#00D4FF20',
+            color: '#00D4FF',
+            border: '1px solid #00D4FF40',
+            padding: '2px 10px',
+            borderRadius: '20px',
+            fontSize: '11px',
+            fontFamily: THEME.FONTS.mono,
+            fontWeight: 600
+          }}>
+            Demo Mode
+          </span>
         )}
       </div>
-      
-      {!loading && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: words.length * 0.05 + 0.5 }}
-          style={{ 
-            marginTop: '32px',
-            fontSize: '12px',
-            color: THEME.COLORS.textSecondary,
+
+      {/* Content */}
+      <div style={{ flex: 1 }}>
+        {loading ? (
+          <div>
+            {/* Shimmer skeleton lines */}
+            {[1, 2, 3].map(i => (
+              <div key={i} style={{
+                height: '14px',
+                marginBottom: '12px',
+                borderRadius: '4px',
+                width: i === 3 ? '60%' : '100%',
+                background: `linear-gradient(90deg, ${THEME.COLORS.surfaceHover} 25%, #2a2a2a 50%, ${THEME.COLORS.surfaceHover} 75%)`,
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 1.5s infinite'
+              }} />
+            ))}
+            <p style={{
+              fontFamily: THEME.FONTS.body,
+              fontSize: '14px',
+              color: THEME.COLORS.muted,
+              marginTop: '16px',
+              animation: 'pulse 2s infinite'
+            }}>
+              🤖 Analyzing your financial behavior...
+            </p>
+            <style>{`
+              @keyframes shimmer {
+                0% { background-position: 200% 0; }
+                100% { background-position: -200% 0; }
+              }
+              @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+              }
+            `}</style>
+          </div>
+        ) : (
+          <div style={{
+            fontFamily: THEME.FONTS.body,
+            fontSize: '14px',
+            color: THEME.COLORS.text,
+            lineHeight: 1.8,
+            whiteSpace: 'pre-wrap'
+          }}>
+            {displayedText.split('\n').map((line, idx) => formatLine(line, idx))}
+            {!typingDone && (
+              <span style={{
+                color: THEME.COLORS.primary,
+                fontWeight: 700,
+                opacity: cursorVisible ? 1 : 0
+              }}>|</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      {!loading && typingDone && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: '16px',
+          paddingTop: '12px',
+          borderTop: `1px solid ${THEME.COLORS.border}`
+        }}>
+          <span style={{
             fontFamily: THEME.FONTS.mono,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: THEME.COLORS.primary, boxShadow: THEME.SHADOWS.glow }}></div>
-          Powered by Groq 70B & Elasticsearch
-        </motion.div>
+            fontSize: '11px',
+            color: THEME.COLORS.muted
+          }}>
+            {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+          <button
+            style={{
+              background: 'transparent',
+              border: `1px solid ${THEME.COLORS.border}`,
+              color: THEME.COLORS.muted,
+              padding: '4px 12px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              fontFamily: THEME.FONTS.body,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = THEME.COLORS.primary;
+              e.currentTarget.style.color = THEME.COLORS.primary;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = THEME.COLORS.border;
+              e.currentTarget.style.color = THEME.COLORS.muted;
+            }}
+          >
+            🔄 Regenerate
+          </button>
+        </div>
       )}
     </div>
   );

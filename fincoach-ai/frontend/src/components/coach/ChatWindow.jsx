@@ -1,210 +1,141 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
 import { THEME } from '../../styles/theme';
-import { sendChat } from '../../api';
 
-const ChatMessage = ({ message, isUser }) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      style={{
-        display: 'flex',
-        flexDirection: isUser ? 'row-reverse' : 'row',
-        gap: '12px',
-        marginBottom: '24px',
-        width: '100%'
-      }}
-    >
-      <div style={{
-        width: '32px',
-        height: '32px',
-        borderRadius: '50%',
-        backgroundColor: isUser ? THEME.COLORS.primary : THEME.COLORS.surfaceHover,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        boxShadow: isUser ? THEME.SHADOWS.glow : 'none'
-      }}>
-        {isUser ? <User size={16} color="#000" /> : <Bot size={16} color={THEME.COLORS.primary} />}
-      </div>
-
-      <div style={{
-        backgroundColor: isUser ? THEME.COLORS.primaryDim : THEME.COLORS.surfaceHover,
-        border: `1px solid ${isUser ? THEME.COLORS.primary : THEME.COLORS.border}`,
-        borderRadius: THEME.BORDER_RADIUS.lg,
-        padding: '16px',
-        maxWidth: '80%',
-        color: THEME.COLORS.text,
-        fontFamily: THEME.FONTS.body,
-        fontSize: '14px',
-        lineHeight: 1.6,
-        whiteSpace: 'pre-wrap'
-      }}>
-        {message}
-      </div>
-    </motion.div>
-  );
+const TypewriterText = ({ text, speed = 15, onDone }) => {
+  const [displayed, setDisplayed] = useState('');
+  useEffect(() => {
+    let i = 0;
+    setDisplayed('');
+    const interval = setInterval(() => {
+      if (i < text.length) {
+        setDisplayed(text.substring(0, i + 1));
+        i++;
+      } else {
+        clearInterval(interval);
+        if (onDone) onDone();
+      }
+    }, speed);
+    return () => clearInterval(interval);
+  }, [text, speed, onDone]);
+  return <span>{displayed}</span>;
 };
 
-const ChatWindow = () => {
-  const [messages, setMessages] = useState([
-    { text: "Hi Ravi! I'm your AI FinCoach. Want to discuss how to save up faster for that New Bike, or analyze this week's food expenses?", isUser: false }
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+const ChatWindow = ({ messages }) => {
+  const bottomRef = useRef(null);
+  const [typingStates, setTypingStates] = useState({});
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading]);
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, typingStates]);
 
-  const handleSend = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-
-    const userMessage = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { text: userMessage, isUser: true }]);
-    setIsLoading(true);
-
-    const response = await sendChat(userMessage);
-    
-    setIsLoading(false);
-    if (response && response.response) {
-      setMessages(prev => [...prev, { text: response.response, isUser: false }]);
-    } else {
-      setMessages(prev => [...prev, { text: "I'm having trouble connecting to my servers right now. Can we try again later? 🔌", isUser: false }]);
-    }
+  const handleTypeDone = (idx) => {
+    setTypingStates(prev => ({ ...prev, [idx]: true }));
   };
 
   return (
     <div style={{
-      backgroundColor: THEME.COLORS.surface,
-      border: `1px solid ${THEME.COLORS.border}`,
-      borderRadius: THEME.BORDER_RADIUS.lg,
+      height: '420px',
+      overflowY: 'auto',
+      padding: '20px',
       display: 'flex',
       flexDirection: 'column',
-      height: '600px',
-      overflow: 'hidden'
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '20px 24px',
-        borderBottom: `1px solid ${THEME.COLORS.border}`,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        backgroundColor: THEME.COLORS.surfaceHover
-      }}>
-        <div style={{
-          width: '12px',
-          height: '12px',
-          borderRadius: '50%',
-          backgroundColor: THEME.COLORS.primary,
-          boxShadow: THEME.SHADOWS.glow
-        }} />
-        <h3 style={{ 
-          fontFamily: THEME.FONTS.heading,
-          fontSize: '16px',
-          fontWeight: 600
-        }}>
-          FinCoach Chat
-        </h3>
-      </div>
+      gap: '16px'
+    }} className="custom-scrollbar">
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: ${THEME.COLORS.primary}40; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${THEME.COLORS.primary}80; }
+      `}</style>
 
-      {/* Messages Area */}
-      <div style={{
-        flex: 1,
-        padding: '24px',
-        overflowY: 'auto',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        {messages.map((msg, index) => (
-          <ChatMessage key={index} message={msg.text} isUser={msg.isUser} />
-        ))}
-        
-        {isLoading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            style={{ display: 'flex', gap: '8px', padding: '16px' }}
-          >
-            <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, delay: 0 }} style={dotStyle} />
-            <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, delay: 0.2 }} style={dotStyle} />
-            <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, delay: 0.4 }} style={dotStyle} />
-          </motion.div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+      {messages.map((msg, idx) => {
+        const isUser = msg.role === 'user';
+        const isLatestAI = !isUser && idx === messages.length - 1;
+        const isTyped = typingStates[idx];
 
-      {/* Input Area */}
-      <form 
-        onSubmit={handleSend}
-        style={{
-          padding: '20px',
-          borderTop: `1px solid ${THEME.COLORS.border}`,
-          display: 'flex',
-          gap: '12px',
-          backgroundColor: THEME.COLORS.surfaceHover
-        }}
-      >
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your spending, goals, or budgeting..."
-          style={{
-            flex: 1,
-            backgroundColor: THEME.COLORS.bg,
-            border: `1px solid ${THEME.COLORS.border}`,
-            borderRadius: THEME.BORDER_RADIUS.md,
-            padding: '12px 16px',
-            color: THEME.COLORS.text,
-            fontFamily: THEME.FONTS.body,
-            fontSize: '14px',
-            outline: 'none',
-            transition: 'border-color 0.2s',
-          }}
-          onFocus={(e) => e.target.style.borderColor = THEME.COLORS.primary}
-          onBlur={(e) => e.target.style.borderColor = THEME.COLORS.border}
-        />
-        <button
-          type="submit"
-          disabled={!input.trim() || isLoading}
-          style={{
-            backgroundColor: input.trim() && !isLoading ? THEME.COLORS.primary : THEME.COLORS.border,
-            color: '#000',
-            border: 'none',
-            borderRadius: THEME.BORDER_RADIUS.md,
-            width: '44px',
-            height: '44px',
+        return (
+          <div key={idx} style={{
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: input.trim() && !isLoading ? 'pointer' : 'not-allowed',
-            transition: 'all 0.2s'
-          }}
-        >
-          <Send size={18} />
-        </button>
-      </form>
+            flexDirection: isUser ? 'row-reverse' : 'row',
+            gap: '10px',
+            alignItems: 'flex-start'
+          }}>
+            {/* AI avatar */}
+            {!isUser && (
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                backgroundColor: THEME.COLORS.bg,
+                border: `2px solid ${THEME.COLORS.primary}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '16px',
+                flexShrink: 0
+              }}>
+                🤖
+              </div>
+            )}
+
+            <div style={{
+              maxWidth: '75%',
+              padding: '12px 16px',
+              fontFamily: THEME.FONTS.heading,
+              fontSize: '14px',
+              lineHeight: 1.6,
+              whiteSpace: 'pre-wrap',
+              ...(isUser ? {
+                backgroundColor: THEME.COLORS.primary,
+                color: '#0a0a0a',
+                borderRadius: '12px 12px 0 12px',
+              } : {
+                backgroundColor: '#1a1a1a',
+                color: '#FFFFFF',
+                border: `1px solid #222`,
+                borderRadius: '0 12px 12px 12px',
+                boxShadow: '2px 2px 0px #00FF8730',
+              })
+            }}>
+              {isUser || !isLatestAI || isTyped ? (
+                msg.text
+              ) : (
+                <TypewriterText text={msg.text} speed={15} onDone={() => handleTypeDone(idx)} />
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Typing indicator */}
+      {messages.length > 0 && messages[messages.length - 1].role === 'loading' && (
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{
+            width: '32px', height: '32px', borderRadius: '50%',
+            backgroundColor: THEME.COLORS.bg, border: `2px solid ${THEME.COLORS.primary}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
+          }}>🤖</div>
+          <div style={{ display: 'flex', gap: '6px', padding: '12px 16px' }}>
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{
+                width: '8px', height: '8px', borderRadius: '50%',
+                backgroundColor: THEME.COLORS.primary,
+                animation: `bounce 1.2s infinite ${i * 0.2}s`
+              }} />
+            ))}
+          </div>
+          <style>{`
+            @keyframes bounce {
+              0%, 60%, 100% { transform: translateY(0); }
+              30% { transform: translateY(-8px); }
+            }
+          `}</style>
+        </div>
+      )}
+
+      <div ref={bottomRef} />
     </div>
   );
-};
-
-const dotStyle = {
-  width: '8px',
-  height: '8px',
-  backgroundColor: THEME.COLORS.primary,
-  borderRadius: '50%'
 };
 
 export default ChatWindow;

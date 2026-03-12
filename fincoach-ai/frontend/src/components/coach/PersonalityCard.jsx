@@ -1,139 +1,170 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { THEME } from '../../styles/theme';
 
-const PersonalityCard = ({ profile }) => {
-  const [isFlipped, setIsFlipped] = useState(false);
+const PERSONALITY_MAP = {
+  "Impulsive Spender": {
+    emoji: "🛍️",
+    color: "#FF3B5C",
+    desc: "Weekend spending 3x higher than weekdays",
+    tip: "Wait 24hrs before any purchase over ₹500"
+  },
+  "Consistent Saver": {
+    emoji: "💚",
+    color: "#00FF87",
+    desc: "Regular habits. Focus on investing surplus.",
+    tip: "Automate investments on salary day"
+  },
+  "Irregular Earner": {
+    emoji: "🌊",
+    color: "#FFB800",
+    desc: "Income fluctuates. Standard budgeting fails.",
+    tip: "Use weekly micro-budgets instead of monthly"
+  }
+};
 
-  const personality = profile?.personality_type || "Analyzer";
-  
-  // Mapping personalities to emojis and descriptions
-  const personalityData = {
-    "Impulsive Spender": { emoji: "🌪️", desc: "You tend to make quick purchasing decisions based on emotion rather than planning." },
-    "Frugal Saver": { emoji: "🛡️", desc: "You are highly protective of your money and prioritize saving over spending." },
-    "Analyzer": { emoji: "🧠", desc: "You carefully weigh every financial decision and track your expenses meticulously." },
-    "Balanced": { emoji: "⚖️", desc: "You maintain a healthy equilibrium between enjoying today and saving for tomorrow." }
-  };
-
-  const data = personalityData[personality] || { emoji: "👤", desc: "Learning your financial habits..." };
+const PersonalityCard = ({ personality_type, finscore }) => {
+  const [hovered, setHovered] = useState(false);
+  const data = PERSONALITY_MAP[personality_type] || PERSONALITY_MAP["Impulsive Spender"];
 
   return (
-    <div 
-      style={{
-        backgroundColor: 'transparent',
-        perspective: '1000px',
-        height: '250px',
-        width: '100%',
-        cursor: 'pointer'
-      }}
-      onClick={() => setIsFlipped(!isFlipped)}
-    >
-      <motion.div
-        animate={{ rotateY: isFlipped ? 180 : 0 }}
-        transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         style={{
+          perspective: '1000px',
+          width: '340px',
+          height: '260px',
+          cursor: 'pointer'
+        }}
+      >
+        <div style={{
           width: '100%',
           height: '100%',
           position: 'relative',
-          transformStyle: 'preserve-3d'
-        }}
-      >
-        {/* Front of Card */}
-        <div style={{
-          position: 'absolute',
-          width: '100%',
-          height: '100%',
-          backfaceVisibility: 'hidden',
-          backgroundColor: THEME.COLORS.surface,
-          border: `2px solid ${THEME.COLORS.primary}`,
-          borderRadius: THEME.BORDER_RADIUS.lg,
-          boxShadow: THEME.SHADOWS.brutalist,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '24px',
-          textAlign: 'center'
+          transformStyle: 'preserve-3d',
+          transition: 'transform 0.6s',
+          transform: hovered ? 'rotateY(180deg)' : 'rotateY(0deg)'
         }}>
-          <h3 style={{ 
-            fontFamily: THEME.FONTS.heading, 
-            color: THEME.COLORS.textSecondary,
-            fontSize: '14px',
-            textTransform: 'uppercase',
-            letterSpacing: '1px',
-            marginBottom: '16px'
+          {/* FRONT */}
+          <div style={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            backfaceVisibility: 'hidden',
+            backgroundColor: data.color + '18',
+            border: `2px solid ${data.color}`,
+            borderRadius: THEME.BORDER_RADIUS.lg,
+            boxShadow: `6px 6px 0px ${data.color}`,
+            padding: '28px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+            gap: '8px'
           }}>
-            Financial Persona
-          </h3>
-          <div style={{ fontSize: '64px', marginBottom: '16px', filter: 'drop-shadow(0 0 10px rgba(0,255,135,0.3))' }}>
-            {data.emoji}
-          </div>
-          <div style={{ 
-            fontFamily: THEME.FONTS.heading,
-            fontSize: '24px',
-            fontWeight: 700,
-            color: THEME.COLORS.primary
-          }}>
-            {personality}
-          </div>
-          <p style={{ 
-            color: THEME.COLORS.textSecondary, 
-            fontSize: '12px', 
-            marginTop: '16px',
-            opacity: 0.7 
-          }}>
-            Click to flip
-          </p>
-        </div>
+            {/* FinScore badge top-right */}
+            <div style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              backgroundColor: data.color + '30',
+              border: `1px solid ${data.color}`,
+              borderRadius: '20px',
+              padding: '4px 12px',
+              fontFamily: THEME.FONTS.mono,
+              fontSize: '13px',
+              fontWeight: 700,
+              color: data.color
+            }}>
+              {finscore}/100
+            </div>
 
-        {/* Back of Card */}
-        <div style={{
-          position: 'absolute',
-          width: '100%',
-          height: '100%',
-          backfaceVisibility: 'hidden',
-          backgroundColor: THEME.COLORS.primary,
-          border: `2px solid ${THEME.COLORS.primary}`,
-          borderRadius: THEME.BORDER_RADIUS.lg,
-          boxShadow: THEME.SHADOWS.brutalist,
-          transform: 'rotateY(180deg)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '24px',
-          textAlign: 'center',
-          color: '#000000'
-        }}>
-          <h3 style={{ 
-            fontFamily: THEME.FONTS.heading, 
-            fontSize: '18px',
-            fontWeight: 800,
-            marginBottom: '16px'
+            <div style={{ fontSize: '48px' }}>{data.emoji}</div>
+            <p style={{
+              fontFamily: THEME.FONTS.body,
+              fontSize: '12px',
+              color: THEME.COLORS.muted,
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              marginTop: '4px'
+            }}>
+              You are:
+            </p>
+            <p style={{
+              fontFamily: THEME.FONTS.heading,
+              fontSize: '22px',
+              fontWeight: 700,
+              color: data.color
+            }}>
+              {personality_type}
+            </p>
+            <p style={{
+              fontFamily: THEME.FONTS.body,
+              fontSize: '14px',
+              color: THEME.COLORS.muted,
+              lineHeight: 1.5
+            }}>
+              {data.desc}
+            </p>
+          </div>
+
+          {/* BACK */}
+          <div style={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            backfaceVisibility: 'hidden',
+            transform: 'rotateY(180deg)',
+            backgroundColor: '#111111',
+            border: `2px solid ${data.color}`,
+            borderRadius: THEME.BORDER_RADIUS.lg,
+            boxShadow: `6px 6px 0px ${data.color}`,
+            padding: '28px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            textAlign: 'center',
+            gap: '16px'
           }}>
-            Behavior Analysis
-          </h3>
-          <p style={{ 
-            fontFamily: THEME.FONTS.body,
-            fontSize: '14px',
-            fontWeight: 500,
-            lineHeight: 1.6
-          }}>
-            {data.desc}
-          </p>
-          <div style={{ 
-            marginTop: '24px',
-            padding: '8px 16px',
-            backgroundColor: 'rgba(0,0,0,0.1)',
-            borderRadius: '20px',
-            fontSize: '12px',
-            fontWeight: 600,
-            fontFamily: THEME.FONTS.mono
-          }}>
-            AI Assessed
+            <p style={{
+              fontFamily: THEME.FONTS.heading,
+              fontSize: '14px',
+              color: THEME.COLORS.primary,
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}>
+              💡 Your Coaching Tip:
+            </p>
+            <p style={{
+              fontFamily: THEME.FONTS.body,
+              fontSize: '16px',
+              color: '#FFFFFF',
+              lineHeight: 1.6
+            }}>
+              {data.tip}
+            </p>
+            <p style={{
+              fontFamily: THEME.FONTS.body,
+              fontSize: '13px',
+              color: THEME.COLORS.primary,
+              cursor: 'pointer',
+              marginTop: '12px'
+            }}>
+              Ask your coach about this →
+            </p>
           </div>
         </div>
-      </motion.div>
+      </div>
+      <p style={{
+        fontFamily: THEME.FONTS.body,
+        fontSize: '12px',
+        color: THEME.COLORS.muted,
+        marginTop: '12px'
+      }}>
+        Hover to reveal your tip →
+      </p>
     </div>
   );
 };

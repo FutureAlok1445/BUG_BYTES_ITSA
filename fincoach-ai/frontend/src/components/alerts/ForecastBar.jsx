@@ -1,77 +1,87 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
 import { THEME } from '../../styles/theme';
 
-const ForecastBar = ({ data }) => {
-  if (!data?.weekly_budget) return null;
+const ForecastBar = ({ forecast, income, spent }) => {
+  const [animWidth, setAnimWidth] = useState(0);
+  const pct = income > 0 ? Math.min((spent / income) * 100, 100) : 0;
 
-  const { this_week_budget, this_week_spent } = data.weekly_budget;
-  
-  const percentage = Math.min((this_week_spent / this_week_budget) * 100, 100);
-  
-  let statusColor = THEME.COLORS.primary;
-  if (percentage > 90) statusColor = THEME.COLORS.danger;
-  else if (percentage > 75) statusColor = THEME.COLORS.warning;
+  const remaining = income - spent;
+  const isDeficit = remaining < 0;
+
+  let fillColor = THEME.COLORS.primary;
+  if (pct >= 90) fillColor = THEME.COLORS.danger;
+  else if (pct >= 75) fillColor = THEME.COLORS.warning;
+
+  const daysLeft = Math.max(1, 30 - new Date().getDate());
+  const dailySpend = spent > 0 ? Math.round(spent / Math.max(1, new Date().getDate())) : 0;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimWidth(pct), 300);
+    return () => clearTimeout(timer);
+  }, [pct]);
 
   return (
     <div style={{
       backgroundColor: THEME.COLORS.surface,
       border: `1px solid ${THEME.COLORS.border}`,
       borderRadius: THEME.BORDER_RADIUS.lg,
-      padding: '24px',
-      marginBottom: '24px'
+      padding: '24px'
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h3 style={{ 
-          fontFamily: THEME.FONTS.heading, 
-          color: THEME.COLORS.text,
-          fontSize: '18px'
-        }}>
-          Weekly Budget Pacing
-        </h3>
-        <span className="number-font" style={{ 
-          color: statusColor,
-          fontSize: '16px',
-          fontWeight: 700
-        }}>
-          ₹{this_week_spent.toLocaleString('en-IN')} / ₹{this_week_budget.toLocaleString('en-IN')}
-        </span>
-      </div>
+      <h3 style={{
+        fontFamily: THEME.FONTS.heading,
+        fontSize: '18px',
+        fontWeight: 700,
+        color: THEME.COLORS.text,
+        marginBottom: '16px'
+      }}>
+        📅 Month-End Forecast
+      </h3>
 
+      {/* Large Number */}
+      <p style={{
+        fontFamily: THEME.FONTS.mono,
+        fontSize: '32px',
+        fontWeight: 700,
+        color: isDeficit ? THEME.COLORS.danger : THEME.COLORS.primary,
+        marginBottom: '20px'
+      }}>
+        ₹{Math.abs(remaining).toLocaleString('en-IN')} {isDeficit ? 'deficit' : 'remaining'}
+      </p>
+
+      {/* Progress Bar */}
       <div style={{
         width: '100%',
-        height: '12px',
+        height: '20px',
         backgroundColor: THEME.COLORS.surfaceHover,
-        borderRadius: '6px',
+        borderRadius: '10px',
         overflow: 'hidden',
-        position: 'relative'
+        marginBottom: '16px'
       }}>
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${percentage}%` }}
-          transition={{ duration: 1, ease: "easeOut" }}
-          style={{
-            height: '100%',
-            backgroundColor: statusColor,
-            borderRadius: '6px',
-            boxShadow: `0 0 10px ${statusColor}40`
-          }}
-        />
+        <div style={{
+          height: '100%',
+          width: `${animWidth}%`,
+          backgroundColor: fillColor,
+          borderRadius: '10px',
+          transition: 'width 1s ease-out',
+          boxShadow: `0 0 10px ${fillColor}40`
+        }} />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
-        <p style={{ 
-          fontSize: '13px', 
-          color: THEME.COLORS.textSecondary 
-        }}>
-          {percentage.toFixed(1)}% consumed
-        </p>
-        <p style={{ 
-          fontSize: '13px', 
-          color: THEME.COLORS.textSecondary 
-        }}>
-          Safe to spend today: <span className="number-font" style={{ color: THEME.COLORS.text }}>₹{data.weekly_budget.daily_safe_limit}</span>
-        </p>
+      {/* 3 Stats Row */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: '8px'
+      }}>
+        <span style={{ fontFamily: THEME.FONTS.mono, fontSize: '12px', color: THEME.COLORS.muted }}>
+          Spent: <span style={{ color: THEME.COLORS.text }}>₹{spent.toLocaleString('en-IN')}</span>
+        </span>
+        <span style={{ fontFamily: THEME.FONTS.mono, fontSize: '12px', color: THEME.COLORS.muted }}>
+          Daily: <span style={{ color: THEME.COLORS.text }}>₹{dailySpend.toLocaleString('en-IN')}/day</span>
+        </span>
+        <span style={{ fontFamily: THEME.FONTS.mono, fontSize: '12px', color: THEME.COLORS.muted }}>
+          Days left: <span style={{ color: THEME.COLORS.text }}>{daysLeft}</span>
+        </span>
       </div>
     </div>
   );
