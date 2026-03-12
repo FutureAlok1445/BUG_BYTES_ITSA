@@ -1,4 +1,3 @@
-# DB package
 def get_all_transactions(user_id): return []
 def get_monthly_totals(user_id): return {"income": 50000, "spent": 30000}
 def get_transactions_by_category(user_id): return {"Food": 15000, "Entertainment": 3000}
