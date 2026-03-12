@@ -1,0 +1,9 @@
+{
+    "python.analysis.extraPaths": [
+        "./fincoach-ai/backend"
+    ],
+    "python.analysis.autoSearchPaths": true,
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingModuleSource": "none"
+    }
+}
