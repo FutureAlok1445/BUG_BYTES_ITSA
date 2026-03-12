@@ -1,0 +1,8 @@
+[
+    {
+        "name": "FinCoach Backend",
+        "rootUri": "./fincoach-ai/backend",
+        "pythonPath": ".",
+        "extraPaths": ["."]
+    }
+]
